@@ -148,7 +148,8 @@ class AMRArray:
 
         Returns None if no data has been stored there.
         """
-        return self.f_arr.get((index, level), None)
+        arr = self.f_arr.get((index, level), None)
+        return arr.copy() if arr is not None else None
 
     # -----------------------------------------------------------------------
     # Contiguous segment helpers
@@ -270,7 +271,15 @@ class AMRArray:
         if not (0 <= array_index < self.n_coarse):
             raise IndexError("array_index out of bounds")
 
-        if self.is_ref[array_index, level]:
+        # is_ref is written at [index, level-1] by set_refinement_at, so we
+        # must read the same slot.  For level 0 there is no flag, so we check
+        # directly whether data exists in f_arr.
+        flag_set = (
+            self.is_ref[array_index, level - 1] if level > 0
+            else (array_index, level) in self.f_arr
+        )
+
+        if flag_set:
             self.f_arr.pop((array_index, level), None)
             self.x_coord.pop((array_index, level), None)
             if level > 0:
@@ -284,7 +293,7 @@ class AMRArray:
 
     def delete_bottom_level(self):
         """Remove the finest refinement level from all coarse points."""
-        bottom_level = self.ref_levs_so_far + 1
+        bottom_level = self.ref_levs_so_far
         for i in range(self.n_coarse):
             if self.is_ref[i, bottom_level - 1]:
                 self.f_arr.pop((i, bottom_level), None)
