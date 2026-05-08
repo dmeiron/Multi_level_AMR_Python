@@ -10,8 +10,10 @@ All indexing is 0-based.
 """
 
 import copy as _copy
+from numpy.typing import NDArray
 import numpy as np
 from fd_deriv import FDDeriv
+from amr_array import AMRArray  # type: ignore[import-untyped]
 
 # Shared module-level cache: order -> FDDeriv instance
 _der_cache: dict[int, FDDeriv] = {}
@@ -28,7 +30,7 @@ def _get_der(order: int) -> FDDeriv:
 # compute_derivative_at_level
 # ---------------------------------------------------------------------------
 
-def compute_derivative_at_level(obj, level: int, order: int, n_deriv: int):
+def compute_derivative_at_level(obj: AMRArray, level: int, order: int, n_deriv: int) -> AMRArray:
     """
     Differentiate a single refinement level of an AMRArray.
 
@@ -45,21 +47,21 @@ def compute_derivative_at_level(obj, level: int, order: int, n_deriv: int):
     """
     der       = _get_der(order)
     obj_deriv = _copy.deepcopy(obj)
-    n_comp    = obj.n_comp
-    n_seg     = obj.n_ref_seg[level - 1]
+    n_comp: int    = obj.n_comp
+    n_seg: int     = int(obj.n_ref_seg[level - 1])
 
     der.normalize_derivatives(obj.dx[level])
 
     for i_seg in range(n_seg):
-        i_start = obj.beg_ref_seg[i_seg, level - 1]
-        i_end   = obj.end_ref_seg[i_seg, level - 1]
+        i_start: int = int(obj.beg_ref_seg[i_seg, level - 1])
+        i_end: int   = int(obj.end_ref_seg[i_seg, level - 1])
 
         for i_comp in range(n_comp):
-            values   = obj.get_contiguous_refinement_array(level, i_comp, i_start, i_end)
-            n_values = len(values)
+            values: NDArray[np.float64]   = obj.get_contiguous_refinement_array(level, i_comp, i_start, i_end)
+            n_values: int = len(values)
 
             if n_deriv == 1:
-                d_values = der.compute_first_derivative(n_values, values)
+                d_values: NDArray[np.float64] = der.compute_first_derivative(n_values, values)
             elif n_deriv == 2:
                 d_values = der.compute_second_derivative(n_values, values)
             else:
@@ -77,7 +79,7 @@ def compute_derivative_at_level(obj, level: int, order: int, n_deriv: int):
 # compute_derivative_no_sync
 # ---------------------------------------------------------------------------
 
-def compute_derivative_no_sync(obj, order: int, n_deriv: int):
+def compute_derivative_no_sync(obj: AMRArray, order: int, n_deriv: int) -> AMRArray:
     """
     Differentiate all levels of an AMRArray without synchronising
     (no fine_to_coarse call at the end).
@@ -97,17 +99,17 @@ def compute_derivative_no_sync(obj, order: int, n_deriv: int):
     """
     der       = _get_der(order)
     obj_deriv = _copy.deepcopy(obj)
-    n_comp    = obj.n_comp
+    n_comp: int = obj.n_comp
 
     if n_deriv == 1:
 
         # --- Coarse level (level 0) ---
         der.normalize_derivatives(obj.dx[0])
-        n_values = obj.n_coarse
+        n_values: int = obj.n_coarse
 
         for i_comp in range(n_comp):
-            values   = obj.f_coarse[:, i_comp]
-            d_values = der.compute_first_derivative(n_values, values)
+            values: NDArray[np.float64]   = obj.f_coarse[:, i_comp]
+            d_values: NDArray[np.float64] = der.compute_first_derivative(n_values, values)
             obj_deriv.f_coarse[:, i_comp] = d_values
             obj_deriv.set_contiguous_refinement_array(
                 0, i_comp, 0, n_values - 2, d_values
@@ -115,15 +117,15 @@ def compute_derivative_no_sync(obj, order: int, n_deriv: int):
 
         # --- Refined levels ---
         for i_lev in range(1, obj.ref_levs_so_far + 1):
-            n_seg = obj.n_ref_seg[i_lev - 1]
+            n_seg: int = int(obj.n_ref_seg[i_lev - 1])
             der.normalize_derivatives(obj.dx[i_lev])
 
             for i_seg in range(n_seg):
-                i_start = obj.beg_ref_seg[i_seg, i_lev - 1]
-                i_end   = obj.end_ref_seg[i_seg, i_lev - 1]
+                i_start: int = int(obj.beg_ref_seg[i_seg, i_lev - 1])
+                i_end: int   = int(obj.end_ref_seg[i_seg, i_lev - 1])
 
                 for i_comp in range(n_comp):
-                    values   = obj.get_contiguous_refinement_array(
+                    values = obj.get_contiguous_refinement_array(
                         i_lev, i_comp, i_start, i_end
                     )
                     n_values = len(values)
@@ -139,7 +141,7 @@ def compute_derivative_no_sync(obj, order: int, n_deriv: int):
         n_values = obj.n_coarse
 
         for i_comp in range(n_comp):
-            values   = obj.f_coarse[:, i_comp]
+            values = obj.f_coarse[:, i_comp]
             d_values = der.compute_second_derivative(n_values, values)
             obj_deriv.f_coarse[:, i_comp] = d_values
             obj_deriv.set_contiguous_refinement_array(
@@ -148,15 +150,15 @@ def compute_derivative_no_sync(obj, order: int, n_deriv: int):
 
         # --- Refined levels ---
         for i_lev in range(1, obj.ref_levs_so_far + 1):
-            n_seg = obj.n_ref_seg[i_lev - 1]
+            n_seg = int(obj.n_ref_seg[i_lev - 1])
             der.normalize_derivatives(obj.dx[i_lev])
 
             for i_seg in range(n_seg):
-                i_start = obj.beg_ref_seg[i_seg, i_lev - 1]
-                i_end   = obj.end_ref_seg[i_seg, i_lev - 1]
+                i_start = int(obj.beg_ref_seg[i_seg, i_lev - 1])
+                i_end   = int(obj.end_ref_seg[i_seg, i_lev - 1])
 
                 for i_comp in range(n_comp):
-                    values   = obj.get_contiguous_refinement_array(
+                    values = obj.get_contiguous_refinement_array(
                         i_lev, i_comp, i_start, i_end
                     )
                     n_values = len(values)
@@ -172,7 +174,7 @@ def compute_derivative_no_sync(obj, order: int, n_deriv: int):
     return obj_deriv
 
 
-def reset_derivative_variant_cache():
+def reset_derivative_variant_cache() -> None:
     """Clear the shared FDDeriv cache (useful for testing)."""
     global _der_cache
     _der_cache.clear()

@@ -11,13 +11,14 @@ Key mapping notes:
     preserved as a comment at the bottom of the file.
 """
 
-import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 import matplotlib.gridspec as gridspec
 import numpy as np
 
 # Module-level figure handle cache (replaces MATLAB persistent variables)
-_fig_handles: dict[str, plt.Figure] = {}
+_fig_handles: dict[str, Figure] = {}
 
 
 class PlotManager:
@@ -27,7 +28,7 @@ class PlotManager:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def get_figure_handle(handle_name: str) -> plt.Figure:
+    def get_figure_handle(handle_name: str) -> Figure:
         """
         Return a named Figure, creating it if it does not yet exist or has
         been closed.
@@ -53,6 +54,7 @@ class PlotManager:
         # A figure is stale if it has been closed by the user
         if fig is None or not plt.fignum_exists(fig.number):
             fig = plt.figure(titles[handle_name], facecolor='w')
+        if fig.canvas.manager is not None:
             fig.canvas.manager.set_window_title(titles[handle_name])
             _fig_handles[handle_name] = fig
 
@@ -261,7 +263,7 @@ class PlotManager:
 # plot_level function used inside plot_*_levels methods)
 # ------------------------------------------------------------------
 
-def _plot_level(ax: plt.Axes, u, i_comp: int, i_level: int):
+def _plot_level(ax: Axes, u, i_comp: int, i_level: int):
     """
     Plot the data for component i_comp at refinement level i_level on ax.
     Data is gathered by scanning the f_arr dict for entries at this level.

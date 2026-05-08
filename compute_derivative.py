@@ -21,8 +21,7 @@ fd_deriv.py.  In particular:
   - components : 0-indexed
   - beg/end_ref_seg arrays : 0-indexed
 """
-
-import numpy as np
+import copy as _copy
 from fd_deriv import FDDeriv
 
 # Module-level cache: maps `order` -> FDDeriv instance.
@@ -46,7 +45,7 @@ def compute_derivative(obj, order: int, n_deriv: int):
     """
     global _der_cache
 
-    # Retrieve or construct the cached FDDeriv for this order
+    # Retrieve or construct thimport copy as _copye cached FDDeriv for this order
     if order not in _der_cache:
         _der_cache[order] = FDDeriv(order)
     der = _der_cache[order]
@@ -157,7 +156,7 @@ def reset_derivative_cache():
 # Helper: shallow structural copy of an AMRArray
 # ------------------------------------------------------------------
 
-import copy as _copy
+
 
 def _copy_amr(obj):
     """Return a deep copy of an AMRArray (delegates to copy.deepcopy)."""

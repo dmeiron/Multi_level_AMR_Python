@@ -130,7 +130,8 @@ class FDDerivFast(FDDeriv):
 # ===========================================================================
 
 if __name__ == '__main__':
-    import math, timeit
+    import math
+    import timeit
 
     order = 4
     k     = 2 * math.pi

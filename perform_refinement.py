@@ -9,7 +9,6 @@ Indexing: all 0-based.
 """
 
 import numpy as np
-import copy
 
 from amr_array import AMRArray
 from refine_from_previous_level import refine_from_previous_level

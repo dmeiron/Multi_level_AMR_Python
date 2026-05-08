@@ -79,7 +79,7 @@ class ErrorMeasure(AMRArray):
         Error indicator = |first derivative| * dx at each level.
         Uses compute_derivative_no_sync (imported lazily to avoid circular deps).
         """
-        from compute_derivative import compute_derivative_no_sync
+        from compute_derivative_variants import compute_derivative_no_sync
 
         obj_der = compute_derivative_no_sync(obj_in, self.order, 1)
 

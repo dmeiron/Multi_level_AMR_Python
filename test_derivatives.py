@@ -46,10 +46,10 @@ _THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 if _THIS_DIR not in sys.path:
     sys.path.insert(0, _THIS_DIR)
 
-from fd_deriv   import FDDeriv
-from amr_array  import AMRArray
-from compute_derivative          import compute_derivative,          reset_derivative_cache
-from compute_derivative_variants import (compute_derivative_no_sync,
+from fd_deriv   import FDDeriv  # noqa: E402
+from amr_array  import AMRArray, ProbDef  # noqa: E402
+from compute_derivative          import compute_derivative,          reset_derivative_cache  # noqa: E402
+from compute_derivative_variants import (compute_derivative_no_sync,  # noqa: E402
                                           compute_derivative_at_level,
                                           reset_derivative_variant_cache)
 
@@ -58,21 +58,21 @@ from compute_derivative_variants import (compute_derivative_no_sync,
 # Helpers
 # ===========================================================================
 
-class _SimpleProb:
-    """Minimal prob_def-like object sufficient to construct an AMRArray."""
-    def __init__(self, n_coarse=51, n_comp=1, ref_fac=4, max_no_levs=5,
-                 x_left=0.0, x_right=1.0):
-        self.n_coarse    = n_coarse
-        self.n_comp      = n_comp
-        self.ref_fac     = ref_fac
-        self.max_no_levs = max_no_levs
-        self.x_left      = x_left
-        self.x_right     = x_right
+def _make_prob(n_coarse=51, n_comp=1, ref_fac=4, max_no_levs=5,
+               x_left=0.0, x_right=1.0) -> ProbDef:
+    return ProbDef(
+        n_coarse=n_coarse,
+        n_comp=n_comp,
+        ref_fac=ref_fac,
+        max_no_levs=max_no_levs,
+        x_left=x_left,
+        x_right=x_right,
+    )
 
 
 def _make_amr(n_coarse=51, n_comp=1, x_left=0.0, x_right=1.0):
-    pd = _SimpleProb(n_coarse=n_coarse, n_comp=n_comp,
-                     x_left=x_left, x_right=x_right)
+    pd = _make_prob(n_coarse=n_coarse, n_comp=n_comp,
+                    x_left=x_left, x_right=x_right)
     return AMRArray(pd), pd
 
 
@@ -213,6 +213,8 @@ def test_fd_deriv_sparse_matches_dense():
     amr.ref_levs_so_far = 0
     der2 = FDDeriv(order)
     der2.form_deriv_matrices(amr)
+    assert der2.sp_mat_d1 is not None and der2.sp_mat_d1[0][0] is not None
+    assert der2.sp_mat_d2 is not None and der2.sp_mat_d2[0][0] is not None
     df_sparse  = der2.sp_mat_d1[0][0].dot(f)
     d2f_sparse = der2.sp_mat_d2[0][0].dot(f)
 
@@ -315,9 +317,14 @@ def test_compute_derivative_order_convergence():
     reset_derivative_cache()
     all_ok = True
 
-    f_func   = lambda x: np.sin(2 * math.pi * x)
-    df_func  = lambda x: 2 * math.pi * np.cos(2 * math.pi * x)
-    d2f_func = lambda x: -(2 * math.pi)**2 * np.sin(2 * math.pi * x)
+    def f_func(x):
+        return np.sin(2 * math.pi * x)
+
+    def df_func(x):
+        return 2 * math.pi * np.cos(2 * math.pi * x)
+
+    def d2f_func(x):
+        return -(2 * math.pi)**2 * np.sin(2 * math.pi * x)
 
     for order in (2, 4):
         fo2    = order // 2
@@ -386,11 +393,13 @@ def _build_refined_amr(order=4, n_coarse=51, ref_fac=4, x_left=0.0, x_right=1.0)
     from refine_from_previous_level import refine_from_previous_level, reset_refine_cache
     reset_refine_cache()
 
-    pd  = _SimpleProb(n_coarse=n_coarse, ref_fac=ref_fac,
-                      x_left=x_left, x_right=x_right)
+    pd  = _make_prob(n_coarse=n_coarse, ref_fac=ref_fac,
+                     x_left=x_left, x_right=x_right)
     amr = AMRArray(pd)
 
-    f_func = lambda x: np.sin(2 * math.pi * x)
+    def f_func(x):  # noqa: E731
+        return np.sin(2 * math.pi * x)
+
     amr.set_coarse_array(f_func(amr.x_coarse), 0)
 
     # Refine the middle third
@@ -416,7 +425,9 @@ def test_compute_derivative_refined_first():
     all_ok = True
 
     amr, f_func = _build_refined_amr(order=order)
-    df_func = lambda x: 2 * math.pi * np.cos(2 * math.pi * x)
+
+    def df_func(x):
+        return 2 * math.pi * np.cos(2 * math.pi * x)
 
     amr_d = compute_derivative(amr, order, 1)
     reset_derivative_cache()
@@ -475,7 +486,9 @@ def test_compute_derivative_refined_second():
     fo2   = order // 2
 
     amr, _ = _build_refined_amr(order=order)
-    d2f_func = lambda x: -(2 * math.pi)**2 * np.sin(2 * math.pi * x)
+
+    def d2f_func(x):
+        return -(2 * math.pi)**2 * np.sin(2 * math.pi * x)
 
     amr_d = compute_derivative(amr, order, 2)
     reset_derivative_cache()
@@ -524,7 +537,9 @@ def test_refined_derivative_finer_than_coarse():
     fo2   = order // 2
 
     amr, f_func = _build_refined_amr(order=order, ref_fac=4)
-    df_func = lambda x: 2 * math.pi * np.cos(2 * math.pi * x)
+
+    def df_func(x):
+        return 2 * math.pi * np.cos(2 * math.pi * x)
 
     amr_d = compute_derivative(amr, order, 1)
     reset_derivative_cache()
@@ -562,11 +577,12 @@ def test_compute_derivative_at_level():
     print("\n--- Group 4: compute_derivative_at_level ---")
     reset_derivative_variant_cache()
     order = 4
-    fo2   = order // 2
     all_ok = True
 
     amr, _ = _build_refined_amr(order=order)
-    df_func = lambda x: 2 * math.pi * np.cos(2 * math.pi * x)
+
+    def df_func(x):
+        return 2 * math.pi * np.cos(2 * math.pi * x)
 
     # Pick the first refined level (level=1) and its first segment
     if amr.n_ref_seg[0] == 0:
@@ -591,7 +607,9 @@ def test_compute_derivative_at_level():
         all_ok = all_ok and ok1
 
     # Coarse level (level=0) data should be UNCHANGED (not differentiated)
-    f_func = lambda x: np.sin(2 * math.pi * x)
+    def f_func(x):
+        return np.sin(2 * math.pi * x)
+
     coarse_unchanged = np.allclose(amr_d.f_coarse[:, 0], f_func(amr.x_coarse))
     ok2 = _pass("coarse level not modified by at_level call", coarse_unchanged)
     all_ok = all_ok and ok2
@@ -606,7 +624,9 @@ def test_compute_derivative_at_level_second():
     order = 4
 
     amr, _ = _build_refined_amr(order=order)
-    d2f_func = lambda x: -(2 * math.pi)**2 * np.sin(2 * math.pi * x)
+
+    def d2f_func(x):
+        return -(2 * math.pi)**2 * np.sin(2 * math.pi * x)
 
     if amr.n_ref_seg[0] == 0:
         print("  [SKIP]  no refined segments found")

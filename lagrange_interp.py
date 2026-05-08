@@ -164,7 +164,6 @@ class LagrangeInterp:
             x_p   = x_interp[k]
             numer = 0.0
             denom = 0.0
-            at_node = False
 
             for j in range(index_min, index_max + 1):
                 if abs(x_p - x[j]) > 10 * np.finfo(float).eps:
@@ -177,7 +176,6 @@ class LagrangeInterp:
                     # Evaluation exactly at a node — return nodal value
                     numer = f[j]
                     denom = 1.0
-                    at_node = True
                     break
 
             f_interp[k] = numer / denom

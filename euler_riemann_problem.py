@@ -49,7 +49,12 @@ def euler_riemann_problem(rho_L, u_L, p_L,
      p_star, u_star) = _compute_p_star(rho_L, u_L, p_L,
                                         rho_R, u_R, p_R, gamma)
 
-    # --- Left wave ---
+ # --- Left wave ---
+    shock_speed_L = float('nan')
+    a_L = float('nan')
+    S_HL = float('nan')
+    S_TL = float('nan')
+
     if left_shock:
         rho_star_L    = rho_L * (_shock_density_ratio(p_star, p_L, gamma))
         shock_speed_L = u_L - _shock_speed(p_star, p_L, rho_L, gamma)
@@ -60,7 +65,12 @@ def euler_riemann_problem(rho_L, u_L, p_L,
         S_HL       = u_L - a_L
         S_TL       = u_star - a_star_L
 
-    # --- Right wave ---
+# --- Right wave ---
+    shock_speed_R = float('nan')
+    a_R = float('nan')
+    S_HR = float('nan')
+    S_TR = float('nan')
+
     if right_shock:
         rho_star_R    = rho_R * (_shock_density_ratio(p_star, p_R, gamma))
         shock_speed_R = u_R + _shock_speed(p_star, p_R, rho_R, gamma)

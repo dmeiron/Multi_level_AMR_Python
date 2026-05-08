@@ -11,6 +11,7 @@ Key mapping notes:
 """
 
 import numpy as np
+from typing import Optional
 from scipy.sparse import csr_matrix
 
 
@@ -56,45 +57,45 @@ class FDDeriv:
         # First-derivative matrix D_1
         # ------------------------------------------------------------------
         self.D_1 = np.zeros((op1, op1))
-        for l in range(op1):
-            imin, imax = self._stencil(l, op1, order)
+        for i_row in range(op1):
+            imin, imax = self._stencil(i_row, op1, order)
             for j in range(imin, imax + 1):
-                if j != l:
-                    self.D_1[l, j] = (
-                        self.weights[l, j] / self.weights[l, l] / (x[l] - x[j])
+                if j != i_row:
+                    self.D_1[i_row, j] = (
+                        self.weights[i_row, j] / self.weights[i_row, i_row] / (x[i_row] - x[j])
                     )
             # Diagonal: negative row sum over the stencil
-            self.D_1[l, l] = -np.sum(self.D_1[l, imin : imax + 1])
+            self.D_1[i_row, i_row] = -np.sum(self.D_1[i_row, imin : imax + 1])
 
         # ------------------------------------------------------------------
         # Second-derivative matrix D_2
         # ------------------------------------------------------------------
-        # s[l] = sum_{k != l} w[l,k] / (x[l] - x[k])
+        # s[i_row] = sum_{k != i_row} w[i_row,k] / (x[i_row] - x[k])
         s = np.zeros(op1)
-        for l in range(op1):
-            imin, imax = self._stencil(l, op1, order)
+        for i_row in range(op1):
+            imin, imax = self._stencil(i_row, op1, order)
             for k in range(imin, imax + 1):
-                if k != l:
-                    s[l] += self.weights[l, k] / (x[l] - x[k])
+                if k != i_row:
+                    s[i_row] += self.weights[i_row, k] / (x[i_row] - x[k])
 
         self.D_2 = np.zeros((op1, op1))
-        for l in range(op1):
-            imin, imax = self._stencil(l, op1, order)
+        for i_row in range(op1):
+            imin, imax = self._stencil(i_row, op1, order)
             for j in range(imin, imax + 1):
-                if j != l:
-                    self.D_2[l, j] = (
-                        -2.0 * self.weights[l, j] / (x[l] - x[j]) ** 2
-                        - 2.0 * self.D_1[l, j] * s[l]
-                    ) / self.weights[l, l]
-            self.D_2[l, l] = -np.sum(self.D_2[l, imin : imax + 1])
+                if j != i_row:
+                    self.D_2[i_row, j] = (
+                        -2.0 * self.weights[i_row, j] / (x[i_row] - x[j]) ** 2
+                        - 2.0 * self.D_1[i_row, j] * s[i_row]
+                    ) / self.weights[i_row, i_row]
+            self.D_2[i_row, i_row] = -np.sum(self.D_2[i_row, imin : imax + 1])
 
         # Normalised matrices are set by normalize_derivatives()
-        self.DN_1 = None
-        self.DN_2 = None
+        self.DN_1: Optional[np.ndarray] = None
+        self.DN_2: Optional[np.ndarray] = None
 
         # Sparse matrices are set by form_deriv_matrices()
-        self.sp_mat_d1 = None
-        self.sp_mat_d2 = None
+        self.sp_mat_d1: Optional[list[list[Optional[csr_matrix]]]] = None
+        self.sp_mat_d2: Optional[list[list[Optional[csr_matrix]]]] = None
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -141,6 +142,7 @@ class FDDeriv:
         -------
         df_1 : 1-D ndarray, length n_values
         """
+        assert self.DN_1 is not None, "Call normalize_derivatives() before compute_first_derivative()"
         f_values = np.asarray(f_values, dtype=float)
         op1  = self.order + 1
         fo2  = self.order // 2
@@ -179,6 +181,7 @@ class FDDeriv:
         -------
         df_2 : 1-D ndarray, length n_values
         """
+        assert self.DN_2 is not None, "Call normalize_derivatives() before compute_second_derivative()"
         f_values = np.asarray(f_values, dtype=float)
         op1  = self.order + 1
         fo2  = self.order // 2
@@ -216,22 +219,28 @@ class FDDeriv:
         ----------
         amr_obj : AMRArray instance
         """
+        assert self.DN_1 is not None and self.DN_2 is not None, \
+            "Call normalize_derivatives() before form_deriv_matrices()"
+
         op1      = self.order + 1
         fo2      = self.order // 2
         n_levels = amr_obj.ref_levs_so_far + 1
 
-        # Outer list indexed by level (0 = coarse)
-        self.sp_mat_d1 = [None] * n_levels
-        self.sp_mat_d2 = [None] * n_levels
+        # Build fully typed nested lists from the start
+        sp1: list[list[Optional[csr_matrix]]] = []
+        sp2: list[list[Optional[csr_matrix]]] = []
 
         # Level 0: single segment (the whole coarse grid)
-        self.sp_mat_d1[0] = [None]
-        self.sp_mat_d2[0] = [None]
+        sp1.append([None])
+        sp2.append([None])
 
         for i_lev in range(1, n_levels):
-            n_seg = amr_obj.n_ref_seg[i_lev - 1]
-            self.sp_mat_d1[i_lev] = [None] * n_seg
-            self.sp_mat_d2[i_lev] = [None] * n_seg
+            n_seg = int(amr_obj.n_ref_seg[i_lev - 1])
+            sp1.append([None] * n_seg)
+            sp2.append([None] * n_seg)
+
+        self.sp_mat_d1 = sp1
+        self.sp_mat_d2 = sp2
 
         for i_lev in range(n_levels):
             self.normalize_derivatives(amr_obj.dx[i_lev])
@@ -280,10 +289,10 @@ class FDDeriv:
                         s2.append(self.DN_2[ip, j])
 
                 shape = (n_points, n_points)
-                self.sp_mat_d1[i_lev][i_seg] = csr_matrix(
+                sp1[i_lev][i_seg] = csr_matrix(
                     (s1, (rows, cols)), shape=shape
                 )
-                self.sp_mat_d2[i_lev][i_seg] = csr_matrix(
+                sp2[i_lev][i_seg] = csr_matrix(
                     (s2, (rows, cols)), shape=shape
                 )
 

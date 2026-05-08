@@ -9,39 +9,29 @@ import copy
 import numpy as np
 import pytest
 import sys
-import os
 
 # Allow importing from the uploads directory
 sys.path.insert(0, "/mnt/user-data/outputs")
-from amr_array import AMRArray
+from amr_array import AMRArray, ProbDef
 
 
 # ---------------------------------------------------------------------------
 # Shared fixture helpers
 # ---------------------------------------------------------------------------
-
-class ProbDef:
-    """Minimal problem-definition object."""
-    def __init__(
-        self,
-        n_coarse=5,
-        n_comp=1,
-        max_no_levs=3,
-        ref_fac=2,
-        x_left=0.0,
-        x_right=1.0,
-    ):
-        self.n_coarse    = n_coarse
-        self.n_comp      = n_comp
-        self.max_no_levs = max_no_levs
-        self.ref_fac     = ref_fac
-        self.x_left      = x_left
-        self.x_right     = x_right
-
-
-def make_amr(**kwargs):
+def make_amr(**kwargs: int | float) -> AMRArray:
     """Convenience factory."""
-    return AMRArray(ProbDef(**kwargs))
+    defaults: dict[str, int | float] = dict(
+        n_coarse=5, n_comp=1, max_no_levs=3, ref_fac=2, x_left=0.0, x_right=1.0
+    )
+    defaults.update(kwargs)
+    return AMRArray(ProbDef(
+        n_coarse    = int(defaults['n_coarse']),
+        n_comp      = int(defaults['n_comp']),
+        max_no_levs = int(defaults['max_no_levs']),
+        ref_fac     = int(defaults['ref_fac']),
+        x_left      = float(defaults['x_left']),
+        x_right     = float(defaults['x_right']),
+    ))
 
 
 def _add_level1_refinement(amr, index=1):
@@ -203,6 +193,7 @@ class TestRefinementAt:
         amr = make_amr(n_coarse=5, n_comp=1, max_no_levs=3, ref_fac=2)
         _add_level1_refinement(amr, index=1)
         stored = amr.get_refinement_at(1, 1)
+        assert stored is not None
         stored[0, 0] = -999
         assert amr.f_arr[(1, 1)][0, 0] != -999
 
@@ -546,12 +537,13 @@ class TestOperators:
         result = amr * 2
         seg = result.f_arr.get((1, 1))
         orig = amr.f_arr.get((1, 1))
+        assert seg is not None and orig is not None
         np.testing.assert_allclose(seg, orig * 2)
 
-    def test_unsupported_type_raises(self):
-        amr = self._simple_amr()
-        with pytest.raises(TypeError):
-            _ = amr + "string"
+def test_unsupported_type_raises(self):
+    amr = self._simple_amr()
+    with pytest.raises(TypeError):
+        _ = amr + "string"  # type: ignore[operator]
 
 
 # ===========================================================================

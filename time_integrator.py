@@ -68,6 +68,7 @@ class TimeIntegrator:
         Finer levels use proportionally smaller sub-steps (sub-cycling).
         """
         import copy
+        assert self.sp_mat_is is not None, "Call generate_sparse_matrices() before integrate()"
         u_at_tpdt = copy.deepcopy(u_at_t)
         n_comp    = u_at_t.n_comp
 
@@ -91,6 +92,8 @@ class TimeIntegrator:
 
                 # Retrieve and factorise the implicit matrix for this segment
                 sp_mat_lev_seg = self.sp_mat_is[i_lev][i_seg]
+                assert sp_mat_lev_seg is not None, \
+                    f"sp_mat_is[{i_lev}][{i_seg}] not built — call generate_sparse_matrices() first"
                 lu_factor      = splu(sp_mat_lev_seg.tocsc())
 
                 # Gather initial solution at this level/segment
@@ -199,7 +202,10 @@ class TimeIntegrator:
                     end      = amr_obj.end_ref_seg[i_seg, i_lev - 1]
                     n_points = (end - beg + 1) * amr_obj.n_ref[i_lev] + 1
 
+                assert self.der.sp_mat_d2 is not None, \
+                    "der.sp_mat_d2 not built — form_deriv_matrices() must run first"
                 sp_d2 = self.der.sp_mat_d2[i_lev][i_seg]
+                assert sp_d2 is not None, f"sp_mat_d2[{i_lev}][{i_seg}] was not populated"
                 I_mat = speye(n_points, format='csr')
 
                 D2 = (self.nu * dt_l) * sp_d2 - I_mat
