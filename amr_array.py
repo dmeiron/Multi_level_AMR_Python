@@ -533,6 +533,43 @@ class AMRArray:
             result.f_arr[key] = -arr
         return result
 
+    # ------------------------------------------------------------------
+    # Diagnostics
+    # ------------------------------------------------------------------
+
+    def summary(self) -> None:
+        """Print a human-readable summary of the AMR structure."""
+        print(f"AMRArray: n_coarse={self.n_coarse}, n_comp={self.n_comp}, "
+              f"ref_fac={self.ref_fac}, ref_levs_so_far={self.ref_levs_so_far}")
+        print(f"  Domain: [{self.x_left:.4g}, {self.x_right:.4g}]  "
+              f"dx[0]={self.dx[0]:.4g}")
+        print(f"  Coarse f_coarse range: "
+              f"[{self.f_coarse.min():.4g}, {self.f_coarse.max():.4g}]")
+
+        if self.ref_levs_so_far == 0:
+            print("  No refined levels.")
+            return
+
+        for i_lev in range(1, self.ref_levs_so_far + 1):
+            n_seg = int(self.n_ref_seg[i_lev - 1])
+            print(f"  Level {i_lev}: {n_seg} segment(s),  dx={self.dx[i_lev]:.4g}")
+            for i_seg in range(n_seg):
+                beg = int(self.beg_ref_seg[i_seg, i_lev - 1])
+                end = int(self.end_ref_seg[i_seg, i_lev - 1])
+                n_pts = 0
+                vals_min, vals_max = float('inf'), float('-inf')
+                for i_pt in range(beg, end + 1):
+                    arr = self.f_arr.get((i_pt, i_lev))
+                    if arr is not None:
+                        n_pts += len(arr)
+                        vals_min = min(vals_min, float(arr.min()))
+                        vals_max = max(vals_max, float(arr.max()))
+                        print(f"    seg {i_seg}: coarse pts [{beg}, {end}]  "
+                              f"fine pts={n_pts}  "
+                              f"f range=[{vals_min:.4g}, {vals_max:.4g}]")
+
+    
+
     # -----------------------------------------------------------------------
     # Convenience / debug
     # -----------------------------------------------------------------------
